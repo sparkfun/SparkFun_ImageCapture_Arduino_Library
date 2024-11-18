@@ -25,6 +25,12 @@ typedef struct {
   uint8_t value; ///< Value to store
 } iCap_parallel_config;
 
+/** Register/value combo for camera configuration over I2C. */
+typedef struct {
+  uint16_t reg;   ///< Register address
+  uint8_t value; ///< Value to store
+} iCap_parallel_config16;
+
 /*!
     @brief  Class encapsulating functionality common to image sensors using
             a parallel data interface + I2C for configuration. (This is the
