@@ -4,7 +4,13 @@
 #include "../../hardware_dma/include/hardware/dma.h"
 #include "hardware/pio.h"
 
+#if defined(PICO_RP2040)
 #define ICAP_XCLK_HZ 12500000
+#elif defined(PICO_RP2350)
+#define ICAP_XCLK_HZ 15000000
+#else
+#error "Unknown RP2 variant"
+#endif
 
 typedef int8_t iCap_pin;
 
