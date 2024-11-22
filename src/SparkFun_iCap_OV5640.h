@@ -30,6 +30,26 @@ typedef enum {
   OV5640_SIZE_QSXGA = 17,  // 2560x1920
 } OV5640_size;
 
+/** Supported effects for OV5640_set_special_effect() */
+typedef enum{
+  OV5640_SPECIAL_EFFECT_NONE = 0,
+  OV5640_SPECIAL_EFFECT_NEGATIVE = 1,
+  OV5640_SPECIAL_EFFECT_GRAYSCALE = 2,
+  OV5640_SPECIAL_EFFECT_RED_TINT = 3,
+  OV5640_SPECIAL_EFFECT_GREEN_TINT = 4,
+  OV5640_SPECIAL_EFFECT_BLUE_TINT = 5,
+  OV5640_SPECIAL_EFFECT_SEPIA = 6,
+} OV5640_special_effect;
+
+typedef enum {
+  OV5640_WHITE_BALANCE_AUTO = 0,
+  OV5640_WHITE_BALANCE_SUNNY = 1,
+  OV5640_WHITE_BALANCE_FLUORESCENT = 2,
+  OV5640_WHITE_BALANCE_CLOUDY = 3,
+  OV5640_WHITE_BALANCE_INCANDESCENT = 4
+} OV5640_white_balance;
+
+
 #if defined(ICAP_FULL_SUPPORT)
 
 typedef iCap_parallel_pins OV5640_pins;
@@ -133,6 +153,61 @@ public:
   */
   void setColorspace(iCap_colorspace space = ICAP_COLOR_RGB565);
 
+  /*!
+    @brief  Flip Camera output on horizontal and/or vertical axes.
+    @param  flip_x True to flip horizontally, false for normal.
+    @param  flip_y True to flip vertically, false for normal.
+  */
+  void flip(bool flip_x, bool flip_y);
+
+  /*!
+    @brief  Enable or disable the night mode setting of the sensor
+    @param  enable_night True to enable night mode, false to disable.
+  */
+  void setNight(bool enable_night);
+
+  /*!
+    @brief  Set the camera to output a test pattern.
+    @param enable True to enable test pattern, false to disable.
+  */
+  void testPattern(bool enable);
+
+  /*!
+    @brief  Set the saturation level of the camera.
+    @param  sat_level Saturation level from -4 to 4 inclusive
+  */
+  void setSaturation(int sat_level);
+
+  /*!
+    @brief  Sensor contrast adjustment
+    @param  size Contrast level, from -3 to 3 inclusive
+  */
+  void setContrast(int contrast_level);
+
+  /*!
+    @brief  Set the effect of the camera.
+    @param  value Effect value. See OV5640_special_effect enum.
+  */
+  void setSpecialEffect(OV5640_special_effect value);
+
+  /*!
+    @brief  Set the exposure level of the camera.
+    @param  exposure_level Exposure level from -3 to 3 inclusive
+  */
+  void setExposure(int exposure_level);
+
+  /*!
+    @brief  Set the brightness level of the camera.
+    @param  brightness_level Brightness level from -4 to 4 inclusive
+  */
+  void setBrightness(int brightness_level);
+
+  /*!
+    @brief  Set the white balance of the camera.
+    @param  white_balance White balance value. See OV5640_white_balance enum.
+  */
+  void setWhiteBalance(OV5640_white_balance white_balance);
+
   //////////////////////////////////////////////////////////////////////////////
   // The OV5640 uses 16-bit register addresses, requiring the functions below.
   //////////////////////////////////////////////////////////////////////////////
@@ -142,15 +217,24 @@ public:
   void writeList16(const uint16_t cfg[][2], uint16_t len);
   void _write_addr_reg(uint16_t reg, uint16_t x_value, uint16_t y_value);
   void _write_reg_bits(uint16_t reg, uint16_t mask, bool enable);
-  void _set_size_and_colorspace(OV5640_size size, uint8_t colorspace);
+  void _write_group_3_settings(const uint16_t cfg[][2], uint16_t len);
+  void _set_size_and_colorspace(OV5640_size size, iCap_colorspace colorspace);
   void _set_image_options();
-  void _set_colorspace(uint8_t colorspace);
+  void _set_colorspace(iCap_colorspace colorspace);
   void _set_pll(bool bypass, int multiplier, int sys_div, int pre_div, bool root_2x, int pclk_root_div, bool pclk_manual, int pclk_div);
-  
+
   bool _binning = false;
   bool _scale = false;
   bool _flip_x = false;
   bool _flip_y = true;
+  bool _test_pattern = false;
+  int _saturation = 0; // -4 to 4
+  int _contrast = 0; // -3 to 3
+  OV5640_special_effect _effect = OV5640_SPECIAL_EFFECT_NONE;
+  int _exposure = 0; // -3 to 3
+  iCap_colorspace _colorspace = ICAP_COLOR_RGB565;
+  int _brightness = 0; // -4 to 4
+
 };
 
 #endif // end ICAP_FULL_SUPPORT

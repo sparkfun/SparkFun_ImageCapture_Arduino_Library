@@ -94,6 +94,17 @@ const uint16_t _AEC_PK_MANUAL = 0x3503;
 
 // gain = {0x350A[1:0], 0x350B[7:0]} / 16
 
+// AEC/AGC power domain control
+const uint16_t _AEC_POWER_DOMAIN = 0x3A00;
+// Bit[7]: Debug mode
+// Bit[6]: Less one line enable
+// Bit[5]: Band function enable
+// Bit[4]: Less 1 band enable
+// Bit[3]: Start selection
+// Bit[2]: Night mode
+// Bit[1]: New balance function
+// Bit[0]: Freeze
+const uint16_t _AEC_POWER_DOMAIN_NIGHT_MASK = 0x04;
 
 const uint16_t _X_ADDR_ST_H = 0x3800;
 const uint16_t _X_ADDR_ST_L = 0x3801;
@@ -613,7 +624,8 @@ const uint16_t _sensor_format_rgb565[][2] = {
   {_CLOCK_ENABLE02, 0xC3}, // reset to how it was before (no jpg clock)
 };
 
-const uint16_t _contrast_settings[][2] = {
+#define NUM_SENSOR_CONTRAST_LEVELS (7)
+const uint16_t _contrast_settings[NUM_SENSOR_CONTRAST_LEVELS][2] = {
   {0x20, 0x00}, //  0
   {0x24, 0x10}, // +1
   {0x28, 0x18}, // +2
@@ -623,7 +635,9 @@ const uint16_t _contrast_settings[][2] = {
   {0x1c, 0x1c}, // -1
 };
 
-const uint16_t _sensor_saturation_levels[][11] = {
+#define NUM_SENSOR_SATURATION_LEVELS (9)
+#define NUM_SAT_VALUES_PER_LEVEL (11)
+const uint16_t _sensor_saturation_levels[NUM_SENSOR_SATURATION_LEVELS][NUM_SAT_VALUES_PER_LEVEL] = {
   {0x1D, 0x60, 0x03, 0x0C, 0x78, 0x84, 0x7D, 0x6B, 0x12, 0x01, 0x98},  // 0
   {0x1D, 0x60, 0x03, 0x0D, 0x84, 0x91, 0x8A, 0x76, 0x14, 0x01, 0x98},  // +1
   {0x1D, 0x60, 0x03, 0x0E, 0x90, 0x9E, 0x96, 0x80, 0x16, 0x01, 0x98},  // +2
@@ -635,7 +649,9 @@ const uint16_t _sensor_saturation_levels[][11] = {
   {0x1D, 0x60, 0x03, 0x0B, 0x6C, 0x77, 0x70, 0x60, 0x10, 0x01, 0x98},  // -1
 };
 
-const uint16_t _sensor_ev_levels[][6] = {
+#define NUM_SENSOR_EV_LEVELS (7)
+#define NUM_EV_VALUES_PER_LEVEL (6)
+const uint16_t _sensor_ev_levels[NUM_SENSOR_EV_LEVELS][NUM_EV_VALUES_PER_LEVEL] = {
   {0x38, 0x30, 0x61, 0x38, 0x30, 0x10}, //  0
   {0x40, 0x38, 0x71, 0x40, 0x38, 0x10}, // +1
   {0x50, 0x48, 0x90, 0x50, 0x48, 0x20}, // +2
@@ -645,8 +661,10 @@ const uint16_t _sensor_ev_levels[][6] = {
   {0x30, 0x28, 0x61, 0x30, 0x28, 0x10}, // -1
 };
 
-const uint16_t _light_registers[] = {0x3406, 0x3400, 0x3401, 0x3402, 0x3403, 0x3404, 0x3405};
-const uint16_t _light_modes[][7] = {
+#define NUM_WHITE_BALANCE_LEVELS (5)
+#define NUM_WHITE_BALANCE_PER_LEVEL (7)
+const uint16_t _light_registers[NUM_WHITE_BALANCE_PER_LEVEL] = {0x3406, 0x3400, 0x3401, 0x3402, 0x3403, 0x3404, 0x3405};
+const uint16_t _light_modes[NUM_WHITE_BALANCE_LEVELS][NUM_WHITE_BALANCE_PER_LEVEL] = {
   {0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00}, // auto
   {0x01, 0x06, 0x1c, 0x04, 0x00, 0x04, 0xf3}, // sunny
   {0x01, 0x05, 0x48, 0x04, 0x00, 0x07, 0xcf}, // office / fluorescent
@@ -809,9 +827,6 @@ iCap_status SparkFun_iCap_OV5640::begin(OV5640_size size, iCap_colorspace space,
   return status;
 }
 
-
-
-
 void SparkFun_iCap_OV5640::_set_image_options() {
   uint8_t reg20 = 0;
   uint8_t reg21 = 0;
@@ -831,12 +846,12 @@ void SparkFun_iCap_OV5640::_set_image_options() {
   }
 
   if (_flip_y) {
-    reg20 |= 0x06;
+    reg20 |= _TIMING_TC_REG20_VFLIP;
     reg4514_test |= 1;
   }
 
   if (_flip_x) {
-    reg21 |= 0x06;
+    reg21 |= _TIMING_TC_REG21_HMIRROR;
     reg4514_test |= 2;
   }
 
@@ -873,12 +888,131 @@ void SparkFun_iCap_OV5640::_set_image_options() {
   }
 }
 
-void SparkFun_iCap_OV5640::_set_colorspace(uint8_t colorspace) {
-  // const uint16_t* settings = _ov5640_color_settings[colorspace];
+void SparkFun_iCap_OV5640::flip(bool flip_x, bool flip_y){
+  _flip_x = flip_x;
+  _flip_y = flip_y;
 
-  // writeList16(settings);
+  // Alternatively could read reg20, reg21, and reg4514 and only modify the bits we need if these are ever modified external to that function...
+  _set_image_options(); 
+}
 
-  writeList16(_sensor_format_rgb565, sizeof _sensor_format_rgb565 / sizeof _sensor_format_rgb565[0]);
+void SparkFun_iCap_OV5640::setNight(bool enable_night){
+  _write_reg_bits(_AEC_POWER_DOMAIN, _AEC_POWER_DOMAIN_NIGHT_MASK, enable_night);
+}
+
+void SparkFun_iCap_OV5640::_set_colorspace(iCap_colorspace colorspace) {
+  _colorspace = colorspace;
+
+  switch(colorspace){
+    case ICAP_COLOR_RGB565:
+      writeList16(_sensor_format_rgb565, sizeof _sensor_format_rgb565 / sizeof _sensor_format_rgb565[0]);
+      break;
+    case ICAP_COLOR_YUV:
+      writeList16(_sensor_format_yuv422, sizeof _sensor_format_yuv422 / sizeof _sensor_format_yuv422[0]);
+      break;
+  }
+}
+
+void SparkFun_iCap_OV5640::testPattern(bool enable){
+  _test_pattern = enable;
+  writeRegister16(_PRE_ISP_TEST_SETTING_1, enable ? 1 << 7 : 0);
+}
+
+void SparkFun_iCap_OV5640::setSaturation(int sat_level){
+  // Confirm sat_level is within bounds
+  if ( (sat_level > 4) || (sat_level < -4) ) {
+    return;
+  }
+
+  _saturation = sat_level;
+
+  // In a bit of a weird form as original library used python indexing:   
+  if (sat_level < 0)
+    sat_level += NUM_SENSOR_SATURATION_LEVELS; //  converts sat level (-4 to -1) to index into _sensor_saturation_levels(5 to 8)
+  
+  for (int offset = 0 ; offset < NUM_SAT_VALUES_PER_LEVEL; offset++){
+    writeRegister16(0x5381 + offset, _sensor_saturation_levels[sat_level][offset]);
+  }
+}
+
+void SparkFun_iCap_OV5640::setContrast(int contrast_level){
+  // Confirm contrast_level is within bounds
+  if ( (contrast_level > 3) || (contrast_level < -3) ) {
+    return;
+  }
+
+    _contrast = contrast_level;
+
+  // In a bit of a weird form as original library used python indexing:
+  if (contrast_level < 0)
+    contrast_level += NUM_SENSOR_CONTRAST_LEVELS; //  converts contrast level (-3 to -1) to index into _contrast_settings(4 to 6)
+
+  const uint16_t contrast_settings_to_write[][2] = {
+    {0x5586, _contrast_settings[contrast_level][0]},
+    {0x5585, _contrast_settings[contrast_level][1]},
+  };
+
+  _write_group_3_settings(contrast_settings_to_write, 2);  
+}
+
+void SparkFun_iCap_OV5640::setSpecialEffect(OV5640_special_effect value){
+  _effect = value;
+  
+  uint16_t special_effect_regs[] = {0x5580, 0x5583, 0x5584, 0x5003};
+
+  for (int i = 0 ; i < 4; i++){
+    writeRegister16(special_effect_regs[i], _sensor_special_effects[value][i]);
+  }
+}
+
+void SparkFun_iCap_OV5640::setExposure(int exposure_level){
+  // Confirm exposure_level is within bounds
+  if ( (exposure_level > 3) || (exposure_level < -3) ) {
+    return;
+  }
+
+  _exposure = exposure_level;
+
+  // In a bit of a weird form as original library used python indexing:
+  if (exposure_level < 0)
+    exposure_level += NUM_SENSOR_EV_LEVELS; //  converts exposure level (-3 to -1) to index into _sensor_ev_levels(4 to 6)
+
+  for (int offset = 0 ; offset < NUM_EV_VALUES_PER_LEVEL; offset++){
+    writeRegister16(0x5381 + offset, _sensor_ev_levels[exposure_level][offset]);
+  }
+}
+
+void SparkFun_iCap_OV5640::setBrightness(int brightness_level){
+  // Confirm brightness_level is within bounds
+  if ( (brightness_level > 4) || (brightness_level < -4) ) {
+    return;
+  }
+
+  _brightness = brightness_level;
+  
+  // Abs value of brightness_level
+  if (brightness_level < 0)
+    brightness_level *= -1; 
+
+  const uint16_t brightness_to_write = (uint16_t)brightness_level << 4;
+  const uint16_t sign_to_write = _brightness < 0 ? 0x9 : 0x01;
+
+  const uint16_t brightness_settings_to_write[][2] = {
+    {0x5587, brightness_to_write},
+    {0x5588, sign_to_write}
+  };
+
+  _write_group_3_settings(brightness_settings_to_write, 2);
+}
+
+void SparkFun_iCap_OV5640::setWhiteBalance(OV5640_white_balance white_balance){
+  writeRegister16(0x3212, 0x03); // Start group 3
+  for (int i = 0; i < NUM_WHITE_BALANCE_PER_LEVEL; i++){
+    writeRegister16(_light_registers[i], _light_modes[white_balance][i]);
+  }
+
+  writeRegister16(0x3212, 0x13); // End group 3
+  writeRegister16(0x3212, 0xA3); //launch group 3
 }
 
 void SparkFun_iCap_OV5640::_set_pll(bool bypass, int multiplier, int sys_div, int pre_div, bool root_2x, int pclk_root_div, bool pclk_manual, int pclk_div)
@@ -901,11 +1035,11 @@ void SparkFun_iCap_OV5640::_set_pll(bool bypass, int multiplier, int sys_div, in
   writeRegister16(0x3037, (pre_div & 0xF) | (root_2x ? 0x10 : 0));
   writeRegister16(0x3108, (pclk_root_div & 3) << 4 | 0x06);
   writeRegister16(0x3824, pclk_div & 0x1F);
-  writeRegister16(0x460C, pclk_manual ? 0x22 : 0x22);
+  writeRegister16(0x460C, pclk_manual ? 0x22 : 0x22); //TODO: this is how the adafruit lib does it, should we instead write 0x20 if pclk_manual is false?
   writeRegister16(0x3103, 0x13);
 }
 
-void SparkFun_iCap_OV5640::_set_size_and_colorspace(OV5640_size size, uint8_t colorspace)
+void SparkFun_iCap_OV5640::_set_size_and_colorspace(OV5640_size size, iCap_colorspace colorspace)
 {
   // size = _size;
   uint16_t width, height, ratio;
@@ -1065,5 +1199,12 @@ void SparkFun_iCap_OV5640::_write_reg_bits(uint16_t reg, uint16_t mask, bool ena
   }
   writeRegister16(reg, val);
 }
+
+void SparkFun_iCap_OV5640::_write_group_3_settings(const uint16_t cfg[][2], uint16_t len) {
+  writeRegister16(0x3212, 0x03); // Start group 3
+  writeList16(cfg, len);
+  writeRegister16(0x3212, 0x13); // End group 3
+  writeRegister16(0x3212, 0xA3); //launch group 3
+} 
 
 #endif // end ICAP_FULL_SUPPORT
